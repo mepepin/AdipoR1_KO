@@ -1,0 +1,378 @@
+---
+title: "Adipor1 in HF - Knockout"
+author: "Mark E. Pepin"
+date: "10/1/2018"
+output: 
+    html_document:
+      code_folding: hide
+      keep_md: yes
+      toc: yes
+      toc_float: yes
+geometry: margin=1in
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage[table]{xcolor}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+mainfont: Times
+fontsize: 10pt
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=30),tidy=FALSE, warning = FALSE, message = FALSE, cache = TRUE)
+options(knitr.kable.NA = '')
+```
+
+# Proteomics Data Visualization
+##Heatmap
+
+```{r heatmap_unsupervised}
+library(dplyr)
+library(tidyr)
+library(pheatmap)
+library(openxlsx)
+##Pull data for analysis
+Heart_raw<-read.xlsx("../1_Input/2_Protein/Heart - PN-0064 Heart - mep.xlsx", colNames = T, rowNames = F, sheet = "Cleaned_NoMVs")
+Heart_raw.cleaned<-Heart_raw %>% mutate(Gene.Symbol = strsplit(as.character(Gene.Symbol), split = ";")) %>% unnest(Gene.Symbol)
+Heart_raw$Gene.Symbol<-make.unique(Heart_raw$Gene.Symbol, sep = ".")
+Heart_raw.complete.cleaned<-Heart_raw.cleaned[!is.na(Heart_raw.cleaned$Gene.Symbol),]
+LFQs.Heart_raw<-dplyr::select(Heart_raw.complete.cleaned, contains("LFQ"))
+rownames(LFQs.Heart_raw)<-make.unique(Heart_raw.complete.cleaned$Gene.Symbol, sep = ".")
+```
+
+## Principal Components Analysis
+
+Once we established that the populations under consideration truly display divergene expression patterns, we sought to determine whether unbiased global gene expression patterns recapitulate the described phenotypes within each heart failure group. To accomplish this, an unsupervised Principal Components Analysis (PCA) was initially used with normalized counts.
+
+### PCA Features
+
+Before running the principal components analysis, it was necessary to first determine the number of PC's required to account for 80% of the variance, a machine-learning algorithmm benchmark that provides sufficient confidence in the analysis.
+
+```{r PCA_Features}
+#Plot Features of the PCA
+library(dplyr)
+library(plotly)
+#transpose the dataset (required for PCA)
+data.pca<-t(LFQs.Heart_raw)
+data.pca<-as.data.frame(data.pca)
+##Import the data to be used for annotation
+Index<-c(0,0,0,0,1,1,1,1)
+Index<-as.data.frame(Index)
+##merge the file
+data.pca_Final<-cbind(Index, data.pca)
+rownames(data.pca_Final)<-data.pca_Final$Row.names
+pca.comp<-prcomp(data.pca_Final[,(ncol(Index)+2):ncol(data.pca_Final)])
+
+pcaCharts=function(x) {
+    x.var <- x$sdev ^ 2
+    x.pvar <- x.var/sum(x.var)
+    par(mfrow=c(2,2))
+    plot(x.pvar,xlab="Principal component", 
+         ylab="Proportion of variance", ylim=c(0,1), type='b')
+    plot(cumsum(x.pvar),xlab="Principal component", 
+         ylab="Cumulative Proportion of variance", 
+         ylim=c(0,1), 
+         type='b')
+    screeplot(x)
+    screeplot(x,type="l")
+    par(mfrow=c(1,1))
+}
+pcaCharts(pca.comp)
+
+png(file=paste0("../2_Output/2_Protein/Proteomics_PCA.Charts.png"))
+pcaCharts(pca.comp)
+dev.off()
+
+```
+
+### 3-Dimensional PCA
+
+From the previous calculations, it is appears that 3 principal components are necessary (accounting for >80% cumulative variance).
+
+```{r PCA-Summary}
+##Create a 3D-PCA for Inspection
+library(plotly)
+##Index
+PCs<-cbind(pca.comp$x, Index)
+rownames(PCs)<-rownames(data.pca)
+ax_text<-list(
+  family = "times",
+  size = 12,
+  color = "black")
+t <- list(
+  family = "times",
+  size = 14,
+  color = "black")
+p <- plot_ly(PCs, x = ~PC1, y = ~PC2, z = ~PC3,
+   marker = list(color = ~Index, 
+                 colorscale = c('#FFE1A1', '#683531'), 
+                 showscale = TRUE),
+  text=rownames(PCs)) %>%
+  add_markers() %>% 
+  layout(scene = list(
+     xaxis = list(title = 'PC1', zerolinewidth = 4, 
+        zerolinecolor="darkgrey", linecolor="darkgrey", 
+        linewidth=4, titlefont=t, tickfont=ax_text),
+     yaxis = list(title = 'PC2', zerolinewidth = 4, 
+        zerolinecolor="darkgrey", linecolor="darkgrey", 
+        linewidth=4, titlefont=t, tickfont=ax_text),
+    zaxis = list(title = 'PC3', zerolinewidth = 4, 
+        zerolinecolor="darkgrey",  linecolor="darkgrey", 
+        linewidth=4, titlefont=t, tickfont=ax_text)),
+  annotations = list(
+           x = 1.13,
+           y = 1.03,
+           text = 'Diabetes',
+           xref = '1',
+           yref = '0',
+           showarrow = FALSE))
+p #must comment out for PDF generation via knitr (Pandoc)
+```
+
+```{r Heatmap, fig.cap="\\label{Heatmap}Heatmap and Unsupervised Hierarchical Clustering of Proteomics in Adipor1 knockout relative to wild-type."}
+library(pheatmap)
+library(dplyr)
+##Import Data Matrix
+Results_HM<-dplyr::filter(Heart_raw.complete.cleaned, minuslog_pval>2)
+HM_data.p05<-data.matrix(dplyr::select(Results_HM, contains("LFQ")))
+rownames(HM_data.p05)<-Results_HM$Gene.Symbol
+#Import the Index File
+paletteLength <- 100
+myColor <- colorRampPalette(c("dodgerblue4", "white", "brown4"))(paletteLength)
+pheatmap(HM_data.p05, color = myColor, scale = "row")
+
+pheatmap(HM_data.p05, color = myColor, scale = "row", filename = "../2_Output/2_Protein/Heatmap.Heart_LFQs.p01.pdf")
+```
+
+##Volcano Plot
+
+```{r Volcano}
+# Load packages
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(openxlsx)
+# Read data from the web
+results<-read.xlsx("../1_Input/2_Protein/Heart - PN-0064 Heart - mep.xlsx", sheet = "IPA_Import")
+results = mutate(results, sig=ifelse(results$minuslogpvalue>1.3 & abs(results$log2FC)>0.585, "p < 0.05 and |FC| > 1.5", "Not Sig"))
+#plot the ggplot
+p = ggplot(results, aes(log2FC, minuslogpvalue)) + theme(panel.background = element_rect("white", colour = "black", size=2), panel.grid.major = element_line(colour = "gray50", size=.75), panel.grid.minor = element_line(colour = "gray50", size=0.4)) + 
+geom_point(aes(fill=sig), colour="black", shape=21) + labs(x=expression(Log[2](Fold-Change)), y=expression(-Log[10](P-value))) + xlim(-5,5)+ geom_hline(yintercept = 0, size = 1) + geom_vline(xintercept=0, size=1)+ 
+scale_fill_manual(values=c("black", "tomato"))
+#add a repelling effect to the text labels.
+p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>2), aes(label=Gene))
+
+pdf(file = "../2_Output/2_Protein/Volcano.Plot_Heart.pdf")
+p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>1), aes(label=Gene))
+dev.off()
+```
+
+#Network Analysis
+
+##Load the network data
+
+```{r Loading_data1}
+# Load the packages used for the network analysis
+library("igraph")
+library("network")
+library("sna")
+library("ndtv")
+library("openxlsx")
+library(tidyr)
+library(dplyr)
+# Load the data used for the network analysis
+links <- read.xlsx("../1_Input/Pathways/Adiponectin_Network_AA.ONLY_ICM.v.NICM.xlsx")
+links<- links %>% mutate(From = strsplit(as.character(From), split = ";")) %>% unnest(From)
+links<- links %>% mutate(To = strsplit(as.character(To), split = ";")) %>% unnest(To)
+links<-unique(links[,2:3])
+nodes <- read.xlsx("../1_Input/1_RNA/LRT-Ischemia-Race Interaction_DESeq2.xlsx", sheet = "Unfiltered")
+nodes<-dplyr::mutate(nodes, Logpvalue=-log(pvalue, 10))
+nodes<-dplyr::select(nodes, -pvalue)
+nodes<-nodes %>% mutate(Gene = strsplit(as.character(external_gene_name), split = ";")) %>% unnest(Gene)
+nodes$Gene<-make.unique(nodes$Gene, sep = ".")
+nodes<-nodes[!is.na(nodes$Gene),]
+nodes<-dplyr::select(nodes, id=Gene, log2FoldChange, Logpvalue)
+nodes_To<-merge(nodes, links, by.x = "id", by.y = "To")
+nodes_To<-dplyr::select(nodes_To, -"From")
+nodes_From<-merge(nodes, links, by.x = "id", by.y = "From")
+nodes_From<-dplyr::select(nodes_From, -To)
+nodes_both<-rbind(nodes_To, nodes_From)
+nodes_filtered<-distinct(nodes_both)
+#create colors for nodes based on fold-change
+nodes_filtered = mutate(nodes_filtered, colrs=ifelse(nodes_filtered$log2FoldChange>0, "darkgoldenrod1", "dodgerblue1"))
+nodes_filtered[nodes_filtered$id=="ADIPOQ",4]<-"tomato"
+# Examine the data
+head(nodes)
+head(links)
+# since there are a few repeated links, we can consolidate them
+links<-links[order(links$From, links$To),]
+rownames(links)<-NULL
+```
+
+
+## Setup the igraph object
+
+```{r igraph_data.frame}
+library("igraph")
+net<-graph.data.frame(links, nodes_filtered, directed=T)
+net
+```
+
+## plot the network
+
+```{r igraph_network}
+net<-simplify(net, remove.multiple = F, remove.loops = T)
+V(net)$color<-nodes_filtered$colrs #change the node colors based on the fold-change (red = up)
+V(net)$size<-abs(V(net)$log2FoldChange)*5
+#Create a layout format
+l <- layout_with_kk(net)
+l <- norm_coords(l, ymin=-.9, ymax=.9, xmin=-.9, xmax=0.9)
+#Highlight the ADIPOQ Targets
+inc.edges <- incident(net,  V(net)[[2]], mode="all")
+ecol <- rep("gray60", ecount(net))
+ecol[inc.edges] <- "tomato"
+#colors
+nodeColors=c("darkgoldenrod1", "dodgerblue1")
+#plot the network
+par(bg="white")
+plot(net, edge.arrow.size=0.4, label.cex=2, vertex.label.color="black", vertex.label.cex=.7, vertex.frame.color=NA, layout = l, rescale=F, edge.color=ecol, edge.width=2)
+legend(x=-1.5, y=-1.1, c("Upregulated", "Downregulated"), pch=21, col=nodeColors, pt.bg = nodeColors, pt.cex=2, cex = 0.8, bty = "n", ncol = 1, title = "Gene Expression", title.col = "black", text.col = "black")
+dev.off()
+##Create a pdf file of the network
+pdf(file="../2_Output/1_RNA/ADIPOQ_Gene.Network.pdf")
+par(bg="white")
+plot(net, edge.arrow.size=0.4, label.cex=2, vertex.label.color="black", vertex.label.cex=.7, vertex.frame.color=NA, layout = l, rescale=F, , edge.color = ecol)
+legend(x=-1.5, y=-1.1, c("Upregulated", "Downregulated"), pch=21, col=nodeColors, pt.bg = nodeColors, pt.cex=2, cex = 0.8, bty = "n", ncol = 1, text.col = "black", title = "Gene Expression", title.col = "black")
+dev.off()
+
+```
+
+##Interactive Plot
+
+```{r Interactive_network}
+tkid <- tkplot(net) #tkid is the id of the tkplot that will open
+l <- tkplot.getcoords(tkid) # grab the coordinates from tkplot
+par(bg="black")
+plot(net, layout=l)
+dev.off
+```
+
+##3-D Network Plot
+
+```{r ThreeD_Network}
+library(rgl)
+library(igraph)
+bg3d("black")
+coords<-layout_with_fr(net, dim=3)
+rgplot <- rglplot(net, layout=coords, edge.arrow.size=0.4, label.cex=2, vertex.label.color="white", vertex.label.cex=0.5, vertex.frame.color=NA, vertex.label.dist=2, rescale=T, edge.color=ecol, edge.width=4)
+# par(bg="black")
+# plot(net, layout=l)
+# dev.off
+
+
+for (i in 1:360){
+  rgl.viewpoint(theta=i, phi=0)
+  rgl.snapshot(filename = paste0("animated/", paste("3D.Network", formatC(i, width=3, flag="0"), sep="_"), ".png"), fmt = "png", top = TRUE )
+}
+system("convert -delay 5 animated/*.png 3D.Network_plot.gif")
+file.remove(list.files(path="./animated/", pattern=".png"))
+```
+
+```{r Pathway_merge}
+library(openxlsx)
+data_heart<-read.xlsx("../1_Input/Pathway.Overlap_3Tissues.xlsx", sheet = "Cardiac")
+data_kidney<-read.xlsx("../1_Input/Pathway.Overlap_3Tissues.xlsx", sheet = "Kidney")
+data_liver<-read.xlsx("../1_Input/Pathway.Overlap_3Tissues.xlsx", sheet = "Liver")
+
+```
+
+##Correlation Analysis the CHAAMPS RNA-sequencing Data
+
+```{r correlation}
+# Format for Correlation
+library(Hmisc)
+library(corrplot)
+library(pheatmap)
+cor<-data.matrix(data.pca)
+cor.m<-rcorr(cor)
+cor.r<-cor(cor)
+cor.r<-data.matrix(cor.r)
+
+
+cor.r<-as.numeric(as.character(cor.r))
+paletteLength <- 100
+myColor <- colorRampPalette(c("dodgerblue4", "white", "brown4"))(paletteLength)
+r.mat<-cor.mtest(cor.r)$r
+heatmap(cor.r)
+corrplot(cor.r, 
+         order="AOE",
+         type="lower",
+         method = "square",
+         hclust.method = "ward.D2",
+         outline=TRUE,
+         addrect = 2,
+         col = myColor,
+         addgrid.col = NA)
+
+
+bigcor <- function(x, nblocks = 10, verbose = TRUE, ...)
+{
+  library(ff, quietly = TRUE)
+  NCOL <- ncol(x)
+  
+  ## test if ncol(x) %% nblocks gives remainder 0
+  if (NCOL %% nblocks != 0) stop("Choose different 'nblocks' so that ncol(x) %% nblocks = 0!")
+  
+  ## preallocate square matrix of dimension
+  ## ncol(x) in 'ff' single format
+  corMAT <- ff(vmode = "single", dim = c(NCOL, NCOL))
+  
+  ## split column numbers into 'nblocks' groups
+  SPLIT <- split(1:NCOL, rep(1:nblocks, each = NCOL/nblocks))
+  
+  ## create all unique combinations of blocks
+  COMBS <- expand.grid(1:length(SPLIT), 1:length(SPLIT))
+  COMBS <- t(apply(COMBS, 1, sort))
+  COMBS <- unique(COMBS)
+  
+  ## iterate through each block combination, calculate correlation matrix
+  ## between blocks and store them in the preallocated matrix on both
+  ## symmetric sides of the diagonal
+  for (i in 1:nrow(COMBS)) {
+    COMB <- COMBS[i, ]
+    G1 <- SPLIT[[COMB[1]]]
+    G2 <- SPLIT[[COMB[2]]]
+    if (verbose) cat("Block", COMB[1], "with Block", COMB[2], "\n")
+    flush.console()
+    COR <- cor(MAT[, G1], MAT[, G2], ...)
+    corMAT[G1, G2] <- COR
+    corMAT[G2, G1] <- t(COR)
+    COR <- NULL
+  }
+  
+  gc()
+  return(corMAT)
+}
+
+##Dendrogram
+library(dendextend)
+dd <- dist(scale(t(transformed_test)), method = "euclidean")
+hc <- hclust(dd, method = "ward.D2")
+hcd <- as.dendrogram(hc)
+#Create Dendrogram
+hcd %>% set("branches_k_color", 
+             value = c("gold2", "dodgerblue4"), k = 2) %>% 
+  plot(main = "Customized colors")
+
+```
+
+

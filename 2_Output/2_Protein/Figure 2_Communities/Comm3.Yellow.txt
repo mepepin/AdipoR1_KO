@@ -1,0 +1,16 @@
+Term	Overlap	P-value	Adjusted P-value	Old P-value	Old Adjusted P-value	Z-score	Combined Score	Genes
+superpathway of conversion of glucose to acetyl CoA and entry into the TCA cycle_Homo sapiens_PWY66-407	Mar-46	6.5E-05	9.1E-04	4.0E-03	5.3E-02	-1.8E+00	17.5	PKM;MDH2;IDH3B
+TCA cycle_Homo sapiens_PWY66-398	17-Feb	3.8E-04	2.6E-03	7.6E-03	5.3E-02	-1.2E+00	9.6	MDH2;IDH3B
+isoleucine degradation_Homo sapiens_ILEUDEG-PWY	12-Jan	2.0E-02	3.8E-02	9.3E-02	1.7E-01	-4.1E-01	1.6	BCKDHA
+superpathway of methionine degradation_Homo sapiens_PWY-5328	17-Jan	2.9E-02	4.4E-02	1.3E-01	2.0E-01	-2.4E-01	0.8	BCKDHA
+valine degradation_Homo sapiens_VALDEG-PWY	13-Jan	2.2E-02	3.8E-02	1.0E-01	1.7E-01	-1.8E-01	0.7	BCKDHA
+CDP-diacylglycerol biosynthesis_Homo sapiens_PWY-5667	22-Jan	3.7E-02	4.7E-02	1.6E-01	2.0E-01	8.5E-02	-0.3	GPAM
+gluconeogenesis_Homo sapiens_PWY66-399	24-Jan	4.0E-02	4.7E-02	1.7E-01	2.0E-01	1.1E-01	-0.4	MDH2
+ubiquinol-10 biosynthesis_Homo sapiens_PWY-5872	7-Jan	1.2E-02	3.8E-02	5.8E-02	1.7E-01	1.1E-01	-0.5	COQ3
+leucine degradation_Homo sapiens_LEU-DEG2-PWY	12-Jan	2.0E-02	3.8E-02	9.3E-02	1.7E-01	1.5E-01	-0.6	BCKDHA
+threonine degradation_Homo sapiens_PWY66-428	6-Jan	1.0E-02	3.8E-02	5.1E-02	1.7E-01	1.8E-01	-0.8	BCKDHA
+2-oxobutanoate degradation_Homo sapiens_PWY-5130	8-Jan	1.4E-02	3.8E-02	6.5E-02	1.7E-01	2.2E-01	-1.0	BCKDHA
+glycolysis_Homo sapiens_PWY66-400	24-Jan	4.0E-02	4.7E-02	1.7E-01	2.0E-01	3.3E-01	-1.1	PKM
+tRNA charging_Homo sapiens_TRNA-CHARGING-PWY	Jan-38	6.3E-02	6.3E-02	2.6E-01	2.6E-01	4.3E-01	-1.2	HARS2
+triacylglycerol biosynthesis_Homo sapiens_TRIGLSYN-PWY	27-Jan	4.5E-02	4.8E-02	1.9E-01	2.1E-01	4.4E-01	-1.4	GPAM
+								

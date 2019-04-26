@@ -1,0 +1,11 @@
+base
+knitr
+dplyr
+tidyr
+pheatmap
+openxlsx
+bindrcpp
+readxl
+ggplot2
+plotly
+ggrepel
