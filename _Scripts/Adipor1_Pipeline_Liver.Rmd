@@ -169,24 +169,17 @@ library(ggrepel)
 
 # Read data from the web
 results<-read.xlsx("../1_Input/2_Protein/Liver - PN-0064-1 Liver - mep.xlsx", sheet = "IPA_Import")
-results = mutate(results, sig=ifelse(results$minuslogpvalue>1.3 & abs(results$log2FC)>0.585, "p < 0.05 and |FC| > 1.5", "Not Sig"))
+results = mutate(results, sig=ifelse(results$minuslog_pval>1.3 & abs(results$log2FC)>0.585, "p < 0.05 and |FC| > 1.5", "Not Sig"))
+results<-dplyr::arrange(results, desc(sig), desc(abs(log2FC)))
+LABEL=results$Gene[1:20]
 #plot the ggplot
-p = ggplot(results, aes(log2FC, minuslogpvalue)) + theme(panel.background = element_rect("white", colour = "black", size=2), panel.grid.major = element_line(colour = "gray50", size=.75), panel.grid.minor = element_line(colour = "gray50", size=0.4)) + 
+p = ggplot(results, aes(log2FC, minuslog_pval)) + theme(panel.background = element_rect("white", colour = "black", size=2), panel.grid.major = element_line(colour = "gray50", size=.75), panel.grid.minor = element_line(colour = "gray50", size=0.4)) + 
 geom_point(aes(fill=sig), colour="black", shape=21) + labs(x=expression(Log[2](Fold-Change)), y=expression(-Log[10](P-value))) + xlim(-5,5)+ geom_hline(yintercept = 0, size = 1) + geom_vline(xintercept=0, size=1)+ 
 scale_fill_manual(values=c("black", "tomato"))
 #add a repelling effect to the text labels.
-p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>2), aes(label=Gene))
+p+geom_text_repel(data=filter(results, minuslog_pval>6 & abs(log2FC) > 1 | abs(log2FC) > 3 & minuslog_pval>2), aes(label=Gene))
 
-pdf(file = "../2_Output/2_Protein/Volcano.Plot_Liver.pdf")
-p+geom_text_repel(data=filter(results, minuslogpvalue>2.5 & abs(log2FC)>2), aes(label=Gene))
+pdf(file = "../2_Output/2_Protein/Volcano.Plot_Liver.pdf", width = 5.3, height = 4.5)
+p+geom_text_repel(data=filter(results, minuslog_pval>6 & abs(log2FC) > 1 | abs(log2FC) > 3 & minuslog_pval>2), aes(label=Gene))
 dev.off()
 ```
-
-##Weighted Gene Co-expression Network Analysis (WGCNA)
-
-```{r WGCNA}
-
-
-```
-
-

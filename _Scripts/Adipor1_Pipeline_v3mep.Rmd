@@ -171,8 +171,8 @@ scale_fill_manual(values=c("black", "tomato"))
 #add a repelling effect to the text labels.
 p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>1), aes(label=Gene))
 
-pdf(file = "../2_Output/2_Protein/Volcano.Plot_Heart.pdf")
-p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>1), aes(label=Gene))
+pdf(file = "../2_Output/2_Protein/Volcano.Plot_Heart.pdf", width = 5.3, height = 4.5)
+p+geom_text_repel(data=filter(results, minuslogpvalue>2 & abs(log2FC)>1), aes(label=Gene, label.size = .5))
 dev.off()
 ```
 
