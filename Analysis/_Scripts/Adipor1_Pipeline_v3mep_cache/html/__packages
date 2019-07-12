@@ -1,9 +1,0 @@
-base
-knitr
-dplyr
-tidyr
-pheatmap
-openxlsx
-ggplot2
-plotly
-ggrepel
